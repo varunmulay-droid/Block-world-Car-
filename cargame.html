@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Velocity Rush - 3D Car Racing</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Orbitron', monospace;
+            background: radial-gradient(ellipse at bottom, #0d1b2a 0%, #1b263b 50%, #415a77 100%);
+            overflow: hidden;
+            user-select: none;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #gameCanvas {
+            display: block;
+            cursor: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+            color: #fff;
+            text-shadow: 0 0 5px #000;
+            font-size: 1.2em;
+        }
+
+        #speedometer {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.5);
+            border: 5px solid #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            pointer-events: auto;
+        }
+
+        #speedValue {
+            font-size: 2.5em;
+            color: #4CAF50;
+            transition: color 0.2s ease-in-out;
+        }
+
+        #speedLabel {
+            font-size: 0.8em;
+            text-transform: uppercase;
+        }
+
+        #timer, #distance {
+            position: absolute;
+            top: 20px;
+            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            backdrop-filter: blur(5px);
+            font-size: 1em;
+            font-weight: bold;
+        }
+
+        #timer {
+            left: 20px;
+        }
+
+        #distance {
+            right: 20px;
+        }
+        
+        #gameOverOverlay, #startScreen, #howToPlayModal, #controlSelection {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            text-align: center;
+            z-index: 10;
+        }
+
+        #gameOverOverlay h1, #startScreen h1, #controlSelection h1 {
+            font-size: 4em;
+            font-weight: 900;
+            text-shadow: 0 0 10px #4CAF50, 0 0 20px #4CAF50, 0 0 30px #4CAF50;
+            animation: glow 1.5s infinite alternate;
+        }
+
+        #startScreen h1 {
+            color: #fff;
+            text-shadow: 0 0 10px #000, 0 0 20px #000;
+        }
+        
+        #controlSelection h1 {
+            font-size: 3.5em;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 0 0 10px #4CAF50, 0 0 20px #4CAF50; }
+            to { text-shadow: 0 0 20px #4CAF50, 0 0 40px #4CAF50; }
+        }
+
+        #gameOverOverlay p, #startScreen p, #controlSelection p {
+            font-size: 1.5em;
+            margin: 20px 0;
+        }
+
+        .action-button {
+            padding: 15px 30px;
+            font-size: 1.2em;
+            font-weight: bold;
+            font-family: 'Orbitron', monospace;
+            cursor: pointer;
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            background: linear-gradient(45deg, #1b263b, #415a77);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease-in-out;
+            margin: 10px;
+        }
+        
+        .action-button:hover {
+            transform: translateY(-5px);
+            background: linear-gradient(45deg, #415a77, #1b263b);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .action-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        #howToPlayModal {
+            z-index: 20;
+            display: none;
+        }
+
+        .modal-content {
+            background: rgba(27, 38, 59, 0.95);
+            padding: 40px;
+            border-radius: 15px;
+            max-width: 600px;
+            border: 2px solid #fff;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+        }
+
+        .modal-content h2 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            color: #4CAF50;
+        }
+
+        .modal-content p {
+            font-size: 1em;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        
+        .modal-content ul {
+            text-align: left;
+            margin-left: 20px;
+            list-style-type: none;
+        }
+        
+        .modal-content li {
+            font-size: 1em;
+            margin-bottom: 10px;
+        }
+        
+        .modal-content li strong {
+            color: #4CAF50;
+        }
+
+        /* Mobile Controls */
+        #mobileControls {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            display: none; /* Hidden by default */
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 20px;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .mobile-btn-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: auto;
+        }
+        
+        .mobile-btn-container.left {
+            align-items: flex-start;
+        }
+
+        .mobile-btn-container.right {
+            align-items: flex-end;
+        }
+
+        .mobile-control-button {
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            color: #fff;
+            font-size: 2em;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: background 0.2s ease-in-out, transform 0.1s ease-in-out;
+            touch-action: none; /* Prevent browser defaults on touch */
+        }
+
+        .mobile-control-button:active {
+            background: rgba(255, 255, 255, 0.4);
+            transform: scale(0.95);
+        }
+        
+        .mobile-btn-container.steering {
+            flex-direction: row;
+        }
+        
+        .mobile-btn-container.steering .mobile-control-button {
+            margin: 5px;
+        }
+        
+        /* Font Awesome for mobile icons */
+        .fa-solid {
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+        }
+        
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/js/all.min.js"></script>
+
+    <div id="gameContainer">
+        <!-- Canvas for the 3D scene -->
+        <canvas id="gameCanvas"></canvas>
+        
+        <!-- Control Selection Screen -->
+        <div id="controlSelection">
+            <h1>Select your controls</h1>
+            <p>Choose your preferred way to play.</p>
+            <div>
+                <button id="pcButton" class="action-button">PC Keyboard</button>
+                <button id="mobileButton" class="action-button">Mobile Touch</button>
+            </div>
+        </div>
+
+        <!-- Start Game Screen -->
+        <div id="startScreen" style="display: none;">
+            <h1>Velocity Rush</h1>
+            <p>A fast-paced 3D car racing game</p>
+            <div>
+                <button id="startButton" class="action-button">Start Game</button>
+                <button id="howToPlayButton" class="action-button">How to Play</button>
+            </div>
+        </div>
+
+        <!-- How to Play Modal -->
+        <div id="howToPlayModal">
+            <div class="modal-content">
+                <h2>How to Play</h2>
+                <p id="howToPlayText"></p>
+                <button id="closeHowToPlayButton" class="action-button">Got it!</button>
+            </div>
+        </div>
+
+        <!-- Heads-Up Display (HUD) -->
+        <div id="hud" style="display: none;">
+            <div id="timer">Time: 0s</div>
+            <div id="distance">Distance: 0m</div>
+            <div id="speedometer">
+                <span id="speedValue">0</span>
+                <span id="speedLabel">km/h</span>
+            </div>
+        </div>
+        
+        <!-- Mobile Controls -->
+        <div id="mobileControls" style="display: none;">
+            <div class="mobile-btn-container steering left">
+                <div id="leftButton" class="mobile-control-button">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </div>
+                <div id="rightButton" class="mobile-control-button">
+                    <i class="fa-solid fa-arrow-right"></i>
+                </div>
+            </div>
+            
+            <div class="mobile-btn-container">
+                <div id="brakeButton" class="mobile-control-button" style="margin-bottom: 20px;">
+                    <i class="fa-solid fa-down-long"></i>
+                </div>
+                <div id="accelerateButton" class="mobile-control-button">
+                    <i class="fa-solid fa-up-long"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Over Overlay -->
+        <div id="gameOverOverlay" style="display: none;">
+            <h1>Game Over</h1>
+            <p id="finalScore"></p>
+            <button id="restartButton" class="action-button">Restart</button>
+        </div>
+    </div>
+    
+    <script>
+        // --- Game Setup ---
+        class VelocityRush {
+            constructor() {
+                this.container = document.getElementById('gameContainer');
+                this.canvas = document.getElementById('gameCanvas');
+                this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: true });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setClearColor(0x000000, 0);
+
+                this.scene = new THREE.Scene();
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                this.camera.position.set(0, 20, 50);
+                this.camera.lookAt(0, 0, 0);
+
+                this.world = new CANNON.World();
+                this.world.gravity.set(0, -9.82, 0);
+                this.world.broadphase = new CANNON.NaiveBroadphase();
+
+                // Game state
+                this.isGameRunning = false;
+                this.isPaused = false;
+                this.lastTime = performance.now();
+                this.hud = document.getElementById('hud');
+                this.speedValue = document.getElementById('speedValue');
+                this.timerEl = document.getElementById('timer');
+                this.distanceEl = document.getElementById('distance');
+                this.gameOverOverlay = document.getElementById('gameOverOverlay');
+                this.startScreen = document.getElementById('startScreen');
+                this.controlSelectionScreen = document.getElementById('controlSelection');
+                this.howToPlayModal = document.getElementById('howToPlayModal');
+                this.mobileControls = document.getElementById('mobileControls');
+                this.finalScoreEl = document.getElementById('finalScore');
+                
+                this.elapsedTime = 0;
+                this.distance = 0;
+                this.controlMode = 'keyboard'; // Default control mode
+
+                this.initLights();
+                this.initRoad();
+                this.initCar();
+                this.initObstacles();
+                this.addEventListeners();
+
+                this.showControlSelection();
+            }
+
+            initLights() {
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+                this.scene.add(ambientLight);
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(200, 500, 300);
+                this.scene.add(directionalLight);
+            }
+
+            initRoad() {
+                const roadMaterial = new THREE.MeshLambertMaterial({ color: 0x3a3a3a });
+                const roadGeometry = new THREE.BoxGeometry(100, 1, 1000);
+                this.roadMesh = new THREE.Mesh(roadGeometry, roadMaterial);
+                this.roadMesh.receiveShadow = true;
+                this.roadMesh.position.set(0, -0.5, -450);
+                this.scene.add(this.roadMesh);
+
+                // Add physics to road
+                const roadShape = new CANNON.Box(new CANNON.Vec3(50, 0.5, 500));
+                this.roadBody = new CANNON.Body({ mass: 0, shape: roadShape });
+                this.roadBody.position.copy(this.roadMesh.position);
+                this.world.addBody(this.roadBody);
+            }
+
+            initCar() {
+                const carGeometry = new THREE.BoxGeometry(5, 3, 10);
+                const carMaterial = new THREE.MeshLambertMaterial({ color: 0x4CAF50 });
+                this.carMesh = new THREE.Mesh(carGeometry, carMaterial);
+                this.carMesh.position.set(0, 1.5, 0);
+                this.scene.add(this.carMesh);
+
+                // Add physics to car
+                const carShape = new CANNON.Box(new CANNON.Vec3(2.5, 1.5, 5));
+                this.carBody = new CANNON.Body({ 
+                    mass: 10, 
+                    shape: carShape,
+                    angularFactor: new CANNON.Vec3(0, 1, 0)
+                });
+                this.carBody.position.copy(this.carMesh.position);
+                this.world.addBody(this.carBody);
+
+                // Collision event listener
+                this.carBody.addEventListener('collide', (event) => {
+                    const otherBody = event.body;
+                    if (otherBody.mass === 0 && otherBody !== this.roadBody) {
+                        this.endGame();
+                    }
+                });
+            }
+
+            initObstacles() {
+                this.obstacles = [];
+                this.obstacleSpacing = 50;
+                const obstacleMaterial = new THREE.MeshLambertMaterial({ color: 0xff0000 });
+                for (let i = 0; i < 20; i++) {
+                    const obstacleGeometry = new THREE.BoxGeometry(5, 5, 5);
+                    const obstacleMesh = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
+                    obstacleMesh.position.set(
+                        (Math.random() - 0.5) * 80,
+                        2.5,
+                        -100 - i * this.obstacleSpacing
+                    );
+                    this.scene.add(obstacleMesh);
+                    
+                    const obstacleShape = new CANNON.Box(new CANNON.Vec3(2.5, 2.5, 2.5));
+                    const obstacleBody = new CANNON.Body({ mass: 0, shape: obstacleShape });
+                    obstacleBody.position.copy(obstacleMesh.position);
+                    this.world.addBody(obstacleBody);
+
+                    this.obstacles.push({ mesh: obstacleMesh, body: obstacleBody });
+                }
+            }
+
+            addEventListeners() {
+                // Window resize handler
+                window.addEventListener('resize', () => {
+                    this.camera.aspect = window.innerWidth / window.innerHeight;
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(window.innerWidth, window.innerHeight);
+                });
+
+                // Keyboard controls
+                const keyState = {};
+                document.addEventListener('keydown', (event) => {
+                    keyState[event.key] = true;
+                    if (event.key === 'p' || event.key === 'P') {
+                        this.togglePause();
+                    }
+                });
+                document.addEventListener('keyup', (event) => {
+                    keyState[event.key] = false;
+                });
+                this.keyState = keyState;
+                
+                // Mobile touch controls
+                const mobileKeyMap = {
+                    accelerate: 'w',
+                    brake: 's',
+                    left: 'a',
+                    right: 'd'
+                };
+                
+                ['accelerate', 'brake', 'left', 'right'].forEach(control => {
+                    const button = document.getElementById(control + 'Button');
+                    if (button) {
+                        button.addEventListener('touchstart', (event) => {
+                            event.preventDefault(); // Prevent scrolling
+                            keyState[mobileKeyMap[control]] = true;
+                        });
+                        button.addEventListener('touchend', (event) => {
+                            event.preventDefault();
+                            keyState[mobileKeyMap[control]] = false;
+                        });
+                    }
+                });
+
+                // Button handlers
+                document.getElementById('pcButton').addEventListener('click', () => {
+                    this.setControlMode('keyboard');
+                });
+                document.getElementById('mobileButton').addEventListener('click', () => {
+                    this.setControlMode('mobile');
+                });
+                document.getElementById('startButton').addEventListener('click', () => {
+                    this.startGame();
+                });
+                document.getElementById('howToPlayButton').addEventListener('click', () => {
+                    this.showHowToPlay();
+                });
+                document.getElementById('closeHowToPlayButton').addEventListener('click', () => {
+                    this.closeHowToPlay();
+                });
+                document.getElementById('restartButton').addEventListener('click', () => {
+                    this.resetGame();
+                });
+            }
+
+            showControlSelection() {
+                this.controlSelectionScreen.style.display = 'flex';
+                this.startScreen.style.display = 'none';
+                this.hud.style.display = 'none';
+                this.gameOverOverlay.style.display = 'none';
+            }
+            
+            setControlMode(mode) {
+                this.controlMode = mode;
+                this.controlSelectionScreen.style.display = 'none';
+                this.startScreen.style.display = 'flex';
+                
+                const howToPlayTextEl = document.getElementById('howToPlayText');
+                if (mode === 'keyboard') {
+                    this.mobileControls.style.display = 'none';
+                    howToPlayTextEl.innerHTML = `Welcome to Velocity Rush! Your goal is to navigate the endless road, avoid obstacles, and survive for as long as possible.
+                        <ul>
+                            <li><strong>Accelerate:</strong> Use the <strong>W</strong> key or <strong>Up Arrow</strong></li>
+                            <li><strong>Brake:</strong> Use the <strong>S</strong> key or <strong>Down Arrow</strong></li>
+                            <li><strong>Turn Left:</strong> Use the <strong>A</strong> key or <strong>Left Arrow</strong></li>
+                            <li><strong>Turn Right:</strong> Use the <strong>D</strong> key or <strong>Right Arrow</strong></li>
+                            <li><strong>Pause/Resume:</strong> Use the <strong>P</strong> key</li>
+                        </ul>`;
+                } else {
+                    this.mobileControls.style.display = 'flex';
+                    howToPlayTextEl.innerHTML = `Welcome to Velocity Rush! Your goal is to navigate the endless road, avoid obstacles, and survive for as long as possible.
+                        <p>Use the on-screen buttons to control your car.</p>
+                        <ul>
+                            <li><strong>Accelerate:</strong> Top right button</li>
+                            <li><strong>Brake:</strong> Bottom right button</li>
+                            <li><strong>Turn Left/Right:</strong> Left-side buttons</li>
+                        </ul>`;
+                }
+            }
+
+            showHowToPlay() {
+                this.howToPlayModal.style.display = 'flex';
+                this.startScreen.style.display = 'none';
+            }
+
+            closeHowToPlay() {
+                this.howToPlayModal.style.display = 'none';
+                this.startScreen.style.display = 'flex';
+            }
+
+            startGame() {
+                this.isGameRunning = true;
+                this.isPaused = false;
+                this.lastTime = performance.now();
+                this.hud.style.display = 'block';
+                this.startScreen.style.display = 'none';
+                this.gameOverOverlay.style.display = 'none';
+                // Show mobile controls if selected, otherwise hide
+                if (this.controlMode === 'mobile') {
+                    this.mobileControls.style.display = 'flex';
+                } else {
+                    this.mobileControls.style.display = 'none';
+                }
+                this.animate();
+            }
+
+            endGame() {
+                this.isGameRunning = false;
+                this.isPaused = true;
+                this.finalScoreEl.textContent = `You drove for ${this.elapsedTime.toFixed(1)} seconds and ${this.distance.toFixed(1)} meters!`;
+                this.gameOverOverlay.style.display = 'flex';
+                this.mobileControls.style.display = 'none';
+            }
+
+            resetGame() {
+                // Reset game state
+                this.elapsedTime = 0;
+                this.distance = 0;
+                this.carBody.position.set(0, 1.5, 0);
+                this.carBody.velocity.set(0, 0, 0);
+                this.carBody.quaternion.set(0, 0, 0, 1);
+                
+                // Reset obstacles
+                this.obstacles.forEach((obstacle, i) => {
+                    obstacle.mesh.position.set(
+                        (Math.random() - 0.5) * 80,
+                        2.5,
+                        -100 - i * this.obstacleSpacing
+                    );
+                    obstacle.body.position.copy(obstacle.mesh.position);
+                });
+                
+                this.startGame();
+            }
+
+            togglePause() {
+                this.isPaused = !this.isPaused;
+                if (!this.isPaused) {
+                    this.lastTime = performance.now();
+                    this.animate();
+                }
+            }
+            
+            updatePhysics(dt) {
+                // Apply forces based on key presses
+                const speed = 15;
+                const turnSpeed = 5;
+                let forwardForce = 0;
+                let lateralForce = 0;
+
+                if (this.keyState['w'] || this.keyState['ArrowUp']) {
+                    forwardForce = -speed;
+                }
+                if (this.keyState['s'] || this.keyState['ArrowDown']) {
+                    forwardForce = speed / 2;
+                }
+                if (this.keyState['a'] || this.keyState['ArrowLeft']) {
+                    lateralForce = -turnSpeed;
+                }
+                if (this.keyState['d'] || this.keyState['ArrowRight']) {
+                    lateralForce = turnSpeed;
+                }
+
+                this.carBody.velocity.z = forwardForce * 10;
+                this.carBody.velocity.x = lateralForce * 10;
+                
+                this.world.step(1/60, dt);
+                
+                // Keep the car on the road
+                if (this.carBody.position.x > 45) {
+                    this.carBody.position.x = 45;
+                    this.carBody.velocity.x = 0;
+                }
+                if (this.carBody.position.x < -45) {
+                    this.carBody.position.x = -45;
+                    this.carBody.velocity.x = 0;
+                }
+                
+                // Sync Three.js mesh with Cannon.js body
+                this.carMesh.position.copy(this.carBody.position);
+                this.carMesh.quaternion.copy(this.carBody.quaternion);
+            }
+
+            updateEnvironmentAnimations() {
+                // Move road and obstacles
+                const carSpeedZ = -this.carBody.velocity.z;
+                this.distance += carSpeedZ * 0.0167; // Update distance
+                this.roadMesh.position.z += carSpeedZ * 0.0167;
+
+                // Loop road position
+                if (this.roadMesh.position.z > 0) {
+                    this.roadMesh.position.z = -450;
+                }
+
+                this.obstacles.forEach(obstacle => {
+                    obstacle.mesh.position.z += carSpeedZ * 0.0167;
+                    obstacle.body.position.z = obstacle.mesh.position.z;
+                    
+                    // Reset obstacles that go past the car
+                    if (obstacle.mesh.position.z > 10) {
+                        obstacle.mesh.position.x = (Math.random() - 0.5) * 80;
+                        obstacle.mesh.position.z = -100 - this.obstacleSpacing * (Math.random() * 2 + 1);
+                        obstacle.body.position.copy(obstacle.mesh.position);
+                    }
+                });
+
+                // Update camera position to follow the car
+                const cameraOffsetZ = 30; // Distance behind the car
+                const cameraOffsetY = 15; // Height above the road
+                this.camera.position.z = this.carMesh.position.z + cameraOffsetZ;
+                this.camera.position.y = this.carMesh.position.y + cameraOffsetY;
+            }
+
+            updateUI() {
+                this.elapsedTime = (performance.now() - this.lastTime) / 1000;
+                const speedKmh = Math.abs(this.carBody.velocity.z * 3.6).toFixed(0);
+                
+                this.speedValue.textContent = speedKmh;
+                this.speedValue.style.color = speedKmh > 100 ? '#FFD700' : '#4CAF50';
+                
+                this.timerEl.textContent = `Time: ${this.elapsedTime.toFixed(1)}s`;
+                this.distanceEl.textContent = `Distance: ${this.distance.toFixed(1)}m`;
+            }
+
+            animate() {
+                if (!this.isGameRunning || this.isPaused) {
+                    return;
+                }
+
+                requestAnimationFrame(this.animate.bind(this));
+
+                const currentTime = performance.now();
+                const dt = (currentTime - this.lastTime) / 1000;
+                this.lastTime = currentTime;
+
+                // Update physics
+                this.updatePhysics(dt);
+                
+                // Update environment and UI
+                this.updateEnvironmentAnimations();
+                this.updateUI();
+
+                // Render the scene
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+
+        // Initialize game when page loads
+        window.addEventListener('load', () => {
+            // Check if Three.js and Cannon.js are loaded
+            if (typeof THREE === 'undefined') {
+                document.getElementById('startScreen').innerHTML = 
+                    '<div style="color: #ff4444;">THREE.JS FAILED TO LOAD<br><small>Please refresh the page</small></div>';
+                return;
+            }
+            if (typeof CANNON === 'undefined') {
+                document.getElementById('startScreen').innerHTML = 
+                    '<div style="color: #ff4444;">CANNON.JS FAILED TO LOAD<br><small>Please refresh the page</small></div>';
+                return;
+            }
+            
+            console.log('✓ Three.js and Cannon.js loaded - Starting Velocity Rush');
+            
+            try {
+                new VelocityRush();
+            } catch (error) {
+                console.error('Game initialization error:', error);
+                document.getElementById('startScreen').innerHTML = 
+                    '<div style="color: #ff4444;">GAME FAILED TO START<br><small>Check console for details</small></div>';
+            }
+        });
+
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                console.log('Game paused - tab not visible');
+            } else {
+                console.log('Game resumed');
+            }
+        });
+    </script>
+</body>
+</html>
